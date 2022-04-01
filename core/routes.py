@@ -3,7 +3,9 @@ from core.models import ShortUrls
 from core import app, db
 from random import choice
 import string
-from flask import render_template, request, flash, redirect, url_for
+from flask import render_template, request, flash, redirect, url_for,jsonify
+import json
+
 
 
 def generate_short_id(num_of_chars: int):
@@ -35,7 +37,27 @@ def index():
         short_url = request.host_url + short_id
 
         return render_template('index.html', short_url=short_url)
+    if request.args.get('url'):
+        url = request.args.get('url')
+        short_id = request.args.get('custom_id')
+        if short_id and ShortUrls.query.filter_by(short_id=short_id).first() is not None:
+            flash('Please enter different custom id!')
+            return redirect(url_for('index'))
 
+        if not url:
+            flash('The URL is required!')
+            return redirect(url_for('index'))
+
+        if not short_id:
+            short_id = generate_short_id(8)
+
+        new_link = ShortUrls(
+            original_url=url, short_id=short_id, created_at=datetime.now())
+        db.session.add(new_link)
+        db.session.commit()
+        short_url = request.host_url + short_id
+        response = jsonify(short_url=short_url)
+        return response
     return render_template('index.html')
 
 @app.route('/<short_id>')
